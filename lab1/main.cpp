@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
     if (dot_pos != string::npos) {
         output_name = output_name.substr(0, dot_pos);
     }
-    output_name += "_partition.txt";
+    output_name = "./result/" + output_name + "_partition.txt";
 
     // 3. 输出划分结果到文件 (每行一个整数 0 或 1, 按节点 index 1..N 顺序)
     ofstream outfile(output_name);

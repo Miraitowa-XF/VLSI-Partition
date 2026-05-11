@@ -115,21 +115,21 @@ void Solution::update_node_gain(int node_id, int new_gain, int side) {
 // 初始化与增益计算
 // ============================================================================
 
-void Solution::init_partition(Graph & /*graph*/) {
-    // 将前一半节点放入 X (0), 后一半放入 Y (1)
+void Solution::init_partition(Graph & /*graph*/, mt19937 &rng) {
+    // 随机打乱节点顺序，然后前一半放入 X (0)，后一半放入 Y (1)
+    vector<int> perm(total_nodes_);
+    iota(perm.begin(), perm.end(), 1); // 填充 1..N
+    shuffle(perm.begin(), perm.end(), rng);
+
     int half = total_nodes_ / 2;
-    for (int i = 1; i <= total_nodes_; i++) {
-        if (i <= half) {
-            part_[i] = 0;
-        } else {
-            part_[i] = 1;
-        }
+    for (int i = 0; i < total_nodes_; i++) {
+        part_[perm[i]] = (i < half) ? 0 : 1;
     }
     current_X_size_ = half;
 }
 
 void Solution::compute_initial_gains(Graph &graph) {
-    (void)graph; // 参数保留供将来使用
+    (void)graph;
 
     // 重置超网分布计数
     fill(net_count_X_.begin(), net_count_X_.end(), 0);
@@ -352,7 +352,19 @@ void Solution::fm_pass(Graph &graph) {
 }
 
 // ============================================================================
-// 主入口：多 Pass FM 算法
+// 辅助函数：计算当前 cut size
+// ============================================================================
+
+int Solution::compute_cut_size(int num_nets) {
+    int cut = 0;
+    for (int nid = 0; nid < num_nets; nid++) {
+        if (net_count_X_[nid] > 0 && net_count_Y_[nid] > 0) cut++;
+    }
+    return cut;
+}
+
+// ============================================================================
+// 主入口：多 Pass FM 算法 (带随机重启)
 // ============================================================================
 
 void Solution::my_partition_algorithm(Graph &graph, set<int> &X, set<int> &Y) {
@@ -388,36 +400,20 @@ void Solution::my_partition_algorithm(Graph &graph, set<int> &X, set<int> &Y) {
     min_part_size_ = (int)ceil(0.48 * total_nodes_);
     max_part_size_ = (int)floor(0.52 * total_nodes_);
 
-    // 初始划分
-    init_partition(graph);
+    // ========== 随机重启：尝试多个随机种子，取最优结果 ==========
+    int best_cut = INT_MAX;
+    vector<int> best_part(total_nodes_ + 1, 0);
 
-    // 初始化超网分布计数
-    fill(net_count_X_.begin(), net_count_X_.end(), 0);
-    fill(net_count_Y_.begin(), net_count_Y_.end(), 0);
-    for (Node *node : graph.get_nodes()) {
-        int nid = node->get_index();
-        for (Net *net : node->get_nets()) {
-            int net_id = net->get_index();
-            if (part_[nid] == 0)
-                net_count_X_[net_id]++;
-            else
-                net_count_Y_[net_id]++;
-        }
-    }
+    // 对于小数据集 (< 50k 节点) 尝试 5 次，大数据集尝试 2 次
+    int num_restarts = (total_nodes_ < 50000) ? 5 : 2;
 
-    // 多 Pass 迭代
-    int pass = 0;
-    while (true) {
-        // 计算当前 cut size
-        int prev_cut = 0;
-        for (int nid = 0; nid < num_nets; nid++) {
-            if (net_count_X_[nid] > 0 && net_count_Y_[nid] > 0) prev_cut++;
-        }
+    for (int trial = 0; trial < num_restarts; trial++) {
+        mt19937 rng(trial * 12345 + 42); // 确定性种子，保证可复现
 
-        fm_pass(graph);
+        // 随机初始划分
+        init_partition(graph, rng);
 
-        // fm_pass 内部的回溯会恢复节点划分但不会恢复超网计数，
-        // 因此需要从当前划分重新计算超网分布
+        // 初始化超网分布计数
         fill(net_count_X_.begin(), net_count_X_.end(), 0);
         fill(net_count_Y_.begin(), net_count_Y_.end(), 0);
         for (Node *node : graph.get_nodes()) {
@@ -431,19 +427,50 @@ void Solution::my_partition_algorithm(Graph &graph, set<int> &X, set<int> &Y) {
             }
         }
 
-        // 重新计算 cut size
-        int curr_cut = 0;
-        for (int nid = 0; nid < num_nets; nid++) {
-            if (net_count_X_[nid] > 0 && net_count_Y_[nid] > 0) curr_cut++;
+        // 多 Pass 迭代
+        int pass = 0;
+        while (true) {
+            int prev_cut = compute_cut_size(num_nets);
+            fm_pass(graph);
+
+            // 重新计算超网分布
+            fill(net_count_X_.begin(), net_count_X_.end(), 0);
+            fill(net_count_Y_.begin(), net_count_Y_.end(), 0);
+            for (Node *node : graph.get_nodes()) {
+                int nid = node->get_index();
+                for (Net *net : node->get_nets()) {
+                    int net_id = net->get_index();
+                    if (part_[nid] == 0)
+                        net_count_X_[net_id]++;
+                    else
+                        net_count_Y_[net_id]++;
+                }
+            }
+
+            int curr_cut = compute_cut_size(num_nets);
+            int improvement = prev_cut - curr_cut;
+
+            if (pass == 0 && trial == 0) {
+                cout << "Trial " << trial << " Pass " << pass << ": cut = " << curr_cut
+                     << ", improvement = " << improvement << endl;
+            }
+
+            if (improvement <= 0) break;
+            pass++;
         }
 
-        int improvement = prev_cut - curr_cut;
-        cout << "Pass " << pass << ": cut = " << curr_cut
-             << ", improvement = " << improvement << endl;
+        // 计算最终 cut
+        int final_cut = compute_cut_size(num_nets);
+        cout << "Trial " << trial << " final cut = " << final_cut << endl;
 
-        if (improvement <= 0) break;
-        pass++;
+        if (final_cut < best_cut) {
+            best_cut = final_cut;
+            best_part = part_;
+        }
     }
+
+    // 使用最优结果
+    part_ = best_part;
 
     // 输出结果到 set
     X.clear();

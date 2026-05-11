@@ -8,6 +8,9 @@
 #include <sstream>
 #include <set>
 #include <vector>
+#include <random>
+#include <algorithm>
+#include <climits>
 
 using namespace std;
 
@@ -52,8 +55,8 @@ private:
     int current_X_size_;
 
     // ========== 核心方法 ==========
-    // 初始化划分 (将节点按序分为 X 和 Y, 满足平衡约束)
-    void init_partition(Graph &graph);
+    // 初始化划分 (随机将节点分为 X 和 Y, 满足平衡约束)
+    void init_partition(Graph &graph, mt19937 &rng);
     // 计算所有节点的初始增益
     void compute_initial_gains(Graph &graph);
     // 构建桶结构 (将所有未锁定节点插入对应桶)
@@ -70,6 +73,8 @@ private:
     void fm_pass(Graph &graph);
     // 局部增益更新: 移动节点后更新受影响邻居的增益
     void update_gains_after_move(Graph &graph, int moved_node, int from_side);
+    // 计算当前 cut size (基于 net_count_X_/Y_)
+    int compute_cut_size(int num_nets);
 };
 
 #endif

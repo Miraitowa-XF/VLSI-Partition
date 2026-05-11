@@ -7,6 +7,9 @@
 *.o
 *.obj
 
+# 划分结果文件
+*_partition.txt
+
 # Precompiled Headers
 *.gch
 *.pch
