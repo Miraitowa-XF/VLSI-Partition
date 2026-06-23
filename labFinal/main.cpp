@@ -1,6 +1,5 @@
 #include <fstream>
 #include <iostream>
-#include <sstream>
 #include <vector>
 #include <chrono>
 #include "Graph.h"
@@ -10,50 +9,45 @@
 using namespace std;
 
 int main(int argc, char **argv) {
-    Solution solution;
-    
-    if(argc < 2) {
-        cout << "Usage: ./main benchmark_file [K] [r]" << endl;
-        cout << "Example for 4-way, r=0.20: ./main ./dataset/ibm01.hgr 4 0.20" << endl;
+    if(argc < 5) {
+        cout << "Usage for TopoPart: ./main [bench_file] [topo_file] [K] [r]" << endl;
+        cout << "Example: ./main ./dataset/TopoPart/Generated\\ Benchmarks/case1.txt ./dataset/TopoPart/FPGA\\ Graph/MFS1.txt 8 0.12" << endl;
         exit(-1);
     }
     
-    string benchmark_name = argv[1];
-    int K = (argc >= 3) ? stoi(argv[2]) : 4;         // 默认 4 路划分
-    double r = (argc >= 4) ? stod(argv[3]) : 1.0 / K; // 默认严格均衡
+    string bench_file = argv[1];
+    string topo_file = argv[2];
+    int K = stoi(argv[3]);
+    double r = stod(argv[4]);
 
+    Solution solution;
     Graph graph;
-    solution.read_benchmark(graph, benchmark_name);    
 
-    cout << "Num nodes: " << graph.get_node_num() << " | Num nets: " << graph.get_net_num() << endl;
-    cout << "K-Way Partition: K=" << K << ", Balance Ratio r=" << r << endl;
+    cout << "--- TopoPart FPGA Emulation Routing ---" << endl;
+    cout << "Bench: " << bench_file << " | Topo: " << topo_file << endl;
+    cout << "K: " << K << " | r: " << r << endl;
 
     auto start_time = chrono::high_resolution_clock::now();
 
     vector<int> part_result;
-    solution.my_partition_algorithm(graph, K, r, part_result);
+    // 调用全新的拓扑驱动主函数
+    solution.my_partition_algorithm(graph, K, r, part_result, topo_file, bench_file);
 
     auto end_time = chrono::high_resolution_clock::now();
-    double elapsed_ms = chrono::duration<double, milli>(end_time - start_time).count();
+    double elapsed_s = chrono::duration<double>(end_time - start_time).count();
 
-    string output_name = benchmark_name;
-    size_t slash_pos = output_name.find_last_of('/');
-    if (slash_pos != string::npos) output_name = output_name.substr(slash_pos + 1);
-    size_t dot_pos = output_name.find_last_of('.');
-    if (dot_pos != string::npos) output_name = output_name.substr(0, dot_pos);
-    output_name = "./result/" + output_name + "_partition.txt";
-
+    // ================== 验证与输出 ==================
+    string output_name = "./result/topo_partition.txt";
     ofstream outfile(output_name);
-    if (!outfile.is_open()) { cerr << "Failed to open output file" << endl; exit(-1); }
-    
-    for (int i = 1; i <= graph.get_node_num(); i++) {
+    for (int i = 1; i <= graph.get_max_node_index(); i++) {
         outfile << part_result[i] << endl;
     }
     outfile.close();
 
-    int cut = evaluate(graph, output_name, K);
-    cout << "Final Cut size ((K-1) metric): " << cut << endl;
-    cout << "Total runtime: " << (elapsed_ms / 1000.0) << " s" << endl;
+    // 计算最终 Cut (使用 K-1 metric)
+    int cut = evaluate_kway(graph, part_result, K);
+    cout << "\n>>> Final Cut size: " << cut << endl;
+    cout << ">>> Total runtime: " << elapsed_s << " s" << endl;
 
     return 0;
 }
