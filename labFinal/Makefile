@@ -5,7 +5,7 @@ CXX = g++
 # CFLAGS = -Wall -Wextra -Werror -std=c++17 -pedantic
 # CFLAGS += -g
 
-CFLAGS = -Wall -Wextra -Werror -std=c++17 -pedantic -O3
+CXXFLAGS = -Wall -Wextra -std=c++17 -O2 -g
 
 all: main
 

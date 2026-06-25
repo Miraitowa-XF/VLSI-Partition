@@ -17,6 +17,7 @@ class Graph{
         Net *get_net(int index) { return this->net_map[index]; }
         Node *get_or_create_node(int index);
         Net *add_net(int index);
+        void clear_maps();
 
     private:
         vector<Node *> nodes;

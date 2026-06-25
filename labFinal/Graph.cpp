@@ -32,3 +32,8 @@ Net *Graph::add_net(int index) {
     net_map[index] = net;
     return net;
 }
+
+void Graph::clear_maps() {
+    node_map.clear();
+    net_map.clear();
+}
