@@ -88,8 +88,6 @@ private:
     int repair_topology_violations(Graph &graph, int max_rounds);
     std::vector<int> topology_legal_destinations_for_node(const Graph &graph, int node_id) const;
     int fast_topology_refine(Graph &graph, int max_sweeps);
-    int strict_topology_component_repair(Graph &graph, int time_limit_seconds);
-    int strict_topology_min_conflicts(Graph &graph, int time_limit_seconds);
 
     void rebuild_net_counts(Graph &graph);
     void compute_initial_gains(Graph &graph);

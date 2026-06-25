@@ -41,3 +41,6 @@
 fm_all_logs.csv
 fm_trial_results.csv
 best_trial_id.txt
+
+# TopoPart 数据集（体积大，不纳入版本管理）
+/dataset/TopoPart/
