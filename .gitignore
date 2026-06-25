@@ -44,3 +44,11 @@ best_trial_id.txt
 
 # TopoPart 数据集（体积大，不纳入版本管理）
 /dataset/TopoPart/
+
+# labFinal_parallel 实验数据集（体积大，不纳入版本管理）
+/labFinal_parallel/Generated Benchmarks/
+/labFinal_parallel/FPGAGraph/
+/labFinal_parallel/Titan23Benchmarks/
+
+# labFinal_parallel 编译产物
+/labFinal_parallel/main
